@@ -1,0 +1,99 @@
+name: Bicep Deploy
+run-name: "Deploy · ${{ inputs.action }} · triggered by @${{ github.actor }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to execute"
+        required: true
+        type: choice
+        options:
+          - whatif
+          - deploy
+          - destroy
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  STACK_NAME: "stack-${{ secrets.AZURE_OWNER }}-bicep"
+
+jobs:
+  bicep:
+    name: Bicep ${{ inputs.action }}
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: bicep
+
+    steps:
+      # ── Setup ────────────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Bicep Build (compile check)
+        run: az bicep build --file main.bicep --stdout > /dev/null
+
+      # ── What-If ──────────────────────────────────────────────────────────────
+      # Preview-only, equivalent to `terraform plan` — no state, no resources touched.
+      - name: What-If
+        if: inputs.action == 'whatif'
+        run: |
+          az deployment group what-if \
+            --resource-group "${{ secrets.AZURE_RG_NAME }}" \
+            --template-file main.bicep \
+            --parameters main.bicepparam \
+            --parameters owner="${{ secrets.AZURE_OWNER }}"
+
+      # ── Deploy ───────────────────────────────────────────────────────────────
+      # Uses a Deployment Stack instead of a plain `az deployment group create`:
+      # the stack tracks every resource it manages, so a future update that
+      # removes a resource from the template will also remove it from Azure
+      # (--action-on-unmanage deleteResources) — the closest Bicep-native
+      # equivalent to Terraform's state-driven drift/removal handling.
+      - name: Deploy (az stack group create)
+        if: inputs.action == 'deploy'
+        run: |
+          az stack group create \
+            --name "${{ env.STACK_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RG_NAME }}" \
+            --template-file main.bicep \
+            --parameters main.bicepparam \
+            --parameters owner="${{ secrets.AZURE_OWNER }}" \
+            --deny-settings-mode none \
+            --action-on-unmanage deleteResources \
+            --yes
+
+      # ── Destroy ──────────────────────────────────────────────────────────────
+      # Deletes the stack AND every resource it manages — equivalent to
+      # `terraform destroy`. Does not touch the Resource Group itself, the
+      # shared App Service plan, or any resource managed by the CLI/Terraform
+      # variants of this TP (they are tracked by different stacks/state files).
+      - name: Destroy (az stack group delete)
+        if: inputs.action == 'destroy'
+        run: |
+          az stack group delete \
+            --name "${{ env.STACK_NAME }}" \
+            --resource-group "${{ secrets.AZURE_RG_NAME }}" \
+            --action-on-unmanage deleteAll \
+            --yes
+
+      # ── Summary ───────────────────────────────────────────────────────────────
+      - name: Job Summary
+        if: always()
+        run: |
+          echo "## Bicep Deploy — ${{ inputs.action }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Owner**  : ${{ secrets.AZURE_OWNER }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Stack**  : ${{ env.STACK_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch** : ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Actor**  : @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY

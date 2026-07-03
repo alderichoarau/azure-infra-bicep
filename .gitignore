@@ -1,0 +1,19 @@
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Bicep / ARM
+# Compiled ARM JSON templates (built on the fly in CI, never committed)
+bicep/**/*.json
+
+# What-if / deployment output
+whatif-*.txt
+deployment-*.json
+
+# Local override params (may contain a real owner/RG value - never commit)
+*.local.bicepparam
+
+# OS
+.DS_Store
+Thumbs.db

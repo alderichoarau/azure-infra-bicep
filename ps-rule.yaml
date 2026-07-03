@@ -1,0 +1,57 @@
+# ps-rule.yaml — PSRule for Azure configuration
+#
+# Equivalent of the `checkov:skip=...` inline comments used in the Terraform
+# version of this TP. Rule names below reflect the PSRule.Rules.Azure catalog
+# at the time of writing — confirm against your installed module version with:
+#   ps-rule list --module PSRule.Rules.Azure
+#
+# Every suppression here has a documented reason and a matching inline comment
+# in the .bicep source (search for "TP: exception volontaire").
+
+input:
+  pathIgnore:
+    - '**/*.md'
+    - '.github/**'
+    - 'bicep/**/*.json'
+
+configuration:
+  AZURE_BICEP_FILE_EXPANSION: true
+  AZURE_BICEP_FILE_EXPANSION_TIMEOUT: 30
+  AZURE_PARAMETER_FILE_EXPANSION: true
+
+rule:
+  includeLocal: true
+  baseline: Azure.Default
+
+suppression:
+  # api-config est un conteneur public volontaire (blobs de config statique)
+  Azure.Storage.PublicAccess:
+    - 'st*bcp'
+
+  # Accès réseau ouvert volontairement — pas de Private Endpoint / VNet
+  # integration (hors périmètre TP)
+  Azure.Storage.Firewall:
+    - 'st*bcp'
+    - 'stfn*bcp'
+
+  # ACI exposé publiquement volontairement — conteneur nginx de démonstration TP
+  Azure.Container.PublicIP:
+    - 'aci-*-bcp'
+
+  # Règles Allow-HTTP/Allow-HTTPS avec source '*' volontaires pour le TP
+  Azure.NSG.AnyInboundSource:
+    - 'nsg-frontend-*-bcp'
+
+  # App Service Authentication (Entra ID / B2C) hors périmètre TP
+  Azure.AppService.AuthEnabled:
+    - 'app-*-bcp'
+    - 'fn-*-bcp'
+
+  # Plan partagé B1 (rg-shared-prf2026) — zone redundancy non disponible sur ce SKU
+  Azure.AppService.AvailabilityZone:
+    - 'app-*-bcp'
+    - 'fn-*-bcp'
+
+  # Application Insights non provisionné — hors périmètre TP (cf. module Terraform équivalent)
+  Azure.FunctionApp.AppInsights:
+    - 'fn-*-bcp'
