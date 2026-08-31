@@ -7,7 +7,11 @@
 #
 # --what-if previews resource creates/changes (Bicep's equivalent of
 # `terraform plan`) without deploying anything.
-set -euo pipefail
+#
+# No `set -u`: this script expands possibly-empty arrays (EXTRA_PARAMS*),
+# which macOS's default bash (3.2) treats as an unbound-variable error under
+# nounset even though the array is legitimately just empty.
+set -eo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -93,6 +97,14 @@ fi
 STACK_NAME="stack-${EXERCISE}"
 DEPLOYMENT_NAME="tp104-${EXERCISE}-$(date +%Y%m%d%H%M%S)"
 
+# Only append a second --parameters flag when there's actually something to
+# override — az errors out on a --parameters flag with zero values behind it
+# (which is what "${EXTRA_PARAMS[@]}" expands to for ex3/ex4, no SSH/IP needed).
+EXTRA_PARAMS_FLAG=()
+if [[ ${#EXTRA_PARAMS[@]} -gt 0 ]]; then
+  EXTRA_PARAMS_FLAG=(--parameters "${EXTRA_PARAMS[@]}")
+fi
+
 if [[ -n "$WHAT_IF" ]]; then
   # `az stack group create` has no --what-if of its own (checked against the
   # CLI as of 2.86.0 — az stack group --help lists no such command/flag), so
@@ -104,7 +116,7 @@ if [[ -n "$WHAT_IF" ]]; then
     --resource-group "$RESOURCE_GROUP" \
     --template-file "$EX_DIR/main.bicep" \
     --parameters "$EX_DIR/main.parameters.json" \
-    --parameters "${EXTRA_PARAMS[@]}"
+    "${EXTRA_PARAMS_FLAG[@]}"
   exit 0
 fi
 
@@ -114,7 +126,7 @@ az stack group create \
   --resource-group "$RESOURCE_GROUP" \
   --template-file "$EX_DIR/main.bicep" \
   --parameters "$EX_DIR/main.parameters.json" \
-  --parameters "${EXTRA_PARAMS[@]}" \
+  "${EXTRA_PARAMS_FLAG[@]}" \
   --deny-settings-mode none \
   --action-on-unmanage deleteResources \
   --yes \

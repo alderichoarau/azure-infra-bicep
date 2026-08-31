@@ -18,7 +18,7 @@ param adminPublicKey string
 param allowedSshSourceIp string
 
 @description('VM size')
-param vmSize string = 'Standard_B1s'
+param vmSize string = 'Standard_D2s_v3'
 
 @description('Size (GB) of the attached data disk')
 param dataDiskSizeGb int = 32

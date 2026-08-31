@@ -15,7 +15,7 @@
       "value": "CHANGE_ME - e.g. 90.12.34.56/32"
     },
     "vmSize": {
-      "value": "Standard_B1s"
+      "value": "Standard_D2s_v3"
     },
     "initialCapacity": {
       "value": 2

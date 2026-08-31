@@ -20,7 +20,7 @@ param adminUsername string
 param adminPublicKey string
 
 @description('VM size')
-param vmSize string = 'Standard_B1s'
+param vmSize string = 'Standard_D2s_v3'
 
 var suffix = padLeft(string(vmIndex), 2, '0')
 var vmName = '${namePrefix}-vm${suffix}'

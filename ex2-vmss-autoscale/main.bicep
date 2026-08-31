@@ -18,7 +18,7 @@ param adminPublicKey string
 param allowedSshSourceIp string
 
 @description('Scale set instance size')
-param vmSize string = 'Standard_B1s'
+param vmSize string = 'Standard_D2s_v3'
 
 @description('Initial instance count')
 param initialCapacity int = 2
