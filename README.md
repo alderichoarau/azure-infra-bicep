@@ -13,10 +13,10 @@ Each exercise is independent (its own network, no cross-dependency) and maps to 
 
 | Folder | AZ-104 module | Resources |
 |---|---|---|
-| [`ex1-vm/`](ex1-vm/) | VM overview | VNet + subnet, NSG (SSH restricted to one IP, HTTP open), public IP, Linux VM (Ubuntu 22.04, SSH key only), `CustomScript` extension (nginx) |
-| [`ex2-vmss-autoscale/`](ex2-vmss-autoscale/) | Configure VM availability | Standard Load Balancer, Virtual Machine Scale Set (≥ 2 instances), CPU autoscale rule (70% scale-out / 30% scale-in) |
-| [`ex3-appservice/`](ex3-appservice/) | Configure App Service plans/Azure App Service | Linux App Service Plan (S1), containerized Web App, `staging` deployment slot |
-| [`ex4-container-instances/`](ex4-container-instances/) | Configure Azure Container Instances | 2-container group (exposed web + logging sidecar), public DNS |
+| [`ex1-vm/`](ex1-vm/) | VM overview | VNet + subnet, NSG (SSH restricted to one IP, HTTP open), public IP, Linux VM (Ubuntu 22.04, SSH key only) with a data disk, `CustomScript` extension (nginx) |
+| [`ex2-vmss-autoscale/`](ex2-vmss-autoscale/) | Configure VM availability | Standard Load Balancer, Virtual Machine Scale Set (≥ 2 instances), CPU autoscale (70%/30%) plus a schedule-based profile (business-hours scale-out/-in) |
+| [`ex3-appservice/`](ex3-appservice/) | Configure App Service plans/Azure App Service | Linux App Service Plan (S1) with CPU autoscale, containerized Web App, `staging` deployment slot, per-slot `appSettings` |
+| [`ex4-container-instances/`](ex4-container-instances/) | Configure Azure Container Instances | 2-container group (exposed web + logging sidecar) sharing an `azureFile` volume, environment variables, public DNS |
 | [`bonus-modules/`](bonus-modules/) | — (modularization) | Reusable `network.bicep` + `vm.bicep` modules, orchestrated with a `for` loop (`vmCount` identical VMs) |
 
 Every resource is tagged **`managed_by: 'bicep'`** (+ `tp: 'az104-compute'`, `exercise: '<exercise-name>'`) — see below.
@@ -39,6 +39,10 @@ deploy/destroy from ever touching more than its own exercise:
 ```bash
 # Compile every template without deploying anything
 ./scripts/validate-bicep.sh
+
+# Preview what a deployment would create/change/delete, without deploying
+# anything — Bicep's equivalent of `terraform plan`
+./scripts/deploy.sh ex1-vm rg-tp104-ex1 francecentral --what-if
 
 # Deploy one exercise (creates the resource group if missing, auto-detects
 # your SSH public key and source IP for exercises that need one)
@@ -65,7 +69,7 @@ Repeat for `ex2-vmss-autoscale`, `ex3-appservice`, `ex4-container-instances`, `b
 | Workflow | Trigger | Role |
 |----------|---------|------|
 | [`bicep-lint.yml`](.github/workflows/bicep-lint.yml) | Push `main` / PR touching `*.bicep` | `az bicep build` matrix over the 5 exercises + PSRule for Azure scan. No Azure credentials needed. |
-| [`bicep-provision.yml`](.github/workflows/bicep-provision.yml) | Manual (exercise + region) | OIDC login → `deploy.sh` (Deployment Stack) → `verify.sh` |
+| [`bicep-provision.yml`](.github/workflows/bicep-provision.yml) | Manual (exercise + region + `action`: `deploy` or `whatif`) | OIDC login → `deploy.sh` (Deployment Stack, or `--what-if` preview only) → `verify.sh` |
 | [`bicep-destroy.yml`](.github/workflows/bicep-destroy.yml) | Manual (exercise) | OIDC login → `cleanup.sh --yes --wait` — removes only that exercise's `managed_by=bicep` resources |
 
 Provision and destroy are separate, manually-triggered workflows (mirroring `terraform apply` /

@@ -3,7 +3,10 @@
 # later destroy exactly (and only) what this exercise created.
 #
 # Usage:
-#   ./deploy.sh <ex1-vm|ex2-vmss-autoscale|ex3-appservice|ex4-container-instances|bonus-modules> <resource-group> [location]
+#   ./deploy.sh <ex1-vm|ex2-vmss-autoscale|ex3-appservice|ex4-container-instances|bonus-modules> <resource-group> [location] [--what-if]
+#
+# --what-if previews what the stack would create/change/delete (Bicep's
+# equivalent of `terraform plan`) without deploying anything.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,9 +15,16 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 EXERCISE="${1:-}"
 RESOURCE_GROUP="${2:-}"
 LOCATION="${3:-francecentral}"
+WHAT_IF=""
+
+for arg in "${@:4}"; do
+  case "$arg" in
+    --what-if) WHAT_IF="1" ;;
+  esac
+done
 
 if [[ -z "$EXERCISE" || -z "$RESOURCE_GROUP" ]]; then
-  echo "Usage: $0 <ex1-vm|ex2-vmss-autoscale|ex3-appservice|ex4-container-instances|bonus-modules> <resource-group> [location]"
+  echo "Usage: $0 <ex1-vm|ex2-vmss-autoscale|ex3-appservice|ex4-container-instances|bonus-modules> <resource-group> [location] [--what-if]"
   exit 1
 fi
 
@@ -82,6 +92,20 @@ fi
 # deploy.sh / verify.sh / cleanup.sh. See README.
 STACK_NAME="stack-${EXERCISE}"
 DEPLOYMENT_NAME="tp104-${EXERCISE}-$(date +%Y%m%d%H%M%S)"
+
+if [[ -n "$WHAT_IF" ]]; then
+  echo ">>> What-if preview for '$EXERCISE' via Deployment Stack '$STACK_NAME' (nothing will be deployed)..."
+  az stack group create \
+    --name "$STACK_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --template-file "$EX_DIR/main.bicep" \
+    --parameters "$EX_DIR/main.parameters.json" \
+    --parameters "${EXTRA_PARAMS[@]}" \
+    --deny-settings-mode none \
+    --action-on-unmanage deleteResources \
+    --what-if
+  exit 0
+fi
 
 echo ">>> Deploying '$EXERCISE' via Deployment Stack '$STACK_NAME'..."
 az stack group create \

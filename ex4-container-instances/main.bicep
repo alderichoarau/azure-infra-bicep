@@ -27,14 +27,47 @@ param sidecarCpu int = 1
 @description('Memory (GB) allocated to the sidecar container')
 param sidecarMemoryInGb int = 1
 
+@description('Azure Files share quota (GB), mounted read-write on both containers')
+param fileShareQuotaGb int = 5
+
 var containerGroupName = '${namePrefix}-aci'
 var dnsNameLabel = toLower('${namePrefix}-aci-${uniqueString(resourceGroup().id)}')
+// Storage account names are 3-24 lowercase alphanumeric chars only — can't
+// reuse namePrefix directly (hyphens, too long), so a short fixed prefix +
+// uniqueString keeps this globally unique without exceeding the limit.
+var storageAccountName = toLower('staciex4${uniqueString(resourceGroup().id)}')
+var fileShareName = 'shared-data'
+var volumeName = 'shared-data'
+var volumeMountPath = '/mnt/shared'
 
 // See README — used to scope destruction to this template's resources only.
 var resourceTags = {
   managed_by: 'bicep'
   tp: 'az104-compute'
   exercise: 'ex4-container-instances'
+}
+
+// Azure Files share, mounted on both containers below to illustrate a
+// container group sharing storage as well as its network lifecycle.
+resource storage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
+  name: storageAccountName
+  location: location
+  tags: resourceTags
+  kind: 'StorageV2'
+  sku: {
+    name: 'Standard_LRS'
+  }
+  properties: {
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource fileShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2025-01-01' = {
+  name: '${storage.name}/default/${fileShareName}'
+  properties: {
+    shareQuota: fileShareQuotaGb
+  }
 }
 
 resource containerGroup 'Microsoft.ContainerInstance/containerGroups@2025-09-01' = {
@@ -66,6 +99,22 @@ resource containerGroup 'Microsoft.ContainerInstance/containerGroups@2025-09-01'
               port: 80
             }
           ]
+          environmentVariables: [
+            {
+              name: 'DEMO_ENV'
+              value: 'az104-tp'
+            }
+            {
+              name: 'DEPLOYED_BY'
+              value: 'bicep'
+            }
+          ]
+          volumeMounts: [
+            {
+              name: volumeName
+              mountPath: volumeMountPath
+            }
+          ]
           resources: {
             requests: {
               cpu: webCpu
@@ -76,14 +125,20 @@ resource containerGroup 'Microsoft.ContainerInstance/containerGroups@2025-09-01'
       }
       {
         // Sidecar: illustrates a container group sharing one network lifecycle
-        // (no port exposed).
+        // and one Azure Files volume with the main container (no port exposed).
         name: 'sidecar-logger'
         properties: {
           image: 'mcr.microsoft.com/azure-cli:latest'
           command: [
             '/bin/sh'
             '-c'
-            'while true; do echo "[sidecar] $(date) - still alive next to web"; sleep 30; done'
+            'while true; do echo "[sidecar] $(date) - still alive next to web" | tee -a ${volumeMountPath}/sidecar.log; sleep 30; done'
+          ]
+          volumeMounts: [
+            {
+              name: volumeName
+              mountPath: volumeMountPath
+            }
           ]
           resources: {
             requests: {
@@ -94,7 +149,20 @@ resource containerGroup 'Microsoft.ContainerInstance/containerGroups@2025-09-01'
         }
       }
     ]
+    volumes: [
+      {
+        name: volumeName
+        azureFile: {
+          shareName: fileShareName
+          storageAccountName: storage.name
+          storageAccountKey: storage.listKeys().keys[0].value
+        }
+      }
+    ]
   }
+  dependsOn: [
+    fileShare
+  ]
 }
 
 output containerGroupFqdn string = containerGroup.properties.ipAddress.fqdn

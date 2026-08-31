@@ -7,6 +7,12 @@
     },
     "planSku": {
       "value": "S1"
+    },
+    "planMinCapacity": {
+      "value": 1
+    },
+    "planMaxCapacity": {
+      "value": 3
     }
   }
 }

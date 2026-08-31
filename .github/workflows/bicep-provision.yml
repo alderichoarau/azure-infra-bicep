@@ -1,5 +1,5 @@
 name: Bicep Provision
-run-name: "Provision · ${{ inputs.exercise }} · triggered by @${{ github.actor }}"
+run-name: "Provision · ${{ inputs.exercise }} · ${{ inputs.action }} · triggered by @${{ github.actor }}"
 
 # Deploys one exercise into the shared resource group pre-created by the
 # trainer (GitHub variable AZURE_RG_NAME). Each exercise gets its own
@@ -35,6 +35,14 @@ on:
         required: false
         type: string
         default: francecentral
+      action:
+        description: "deploy for real, or whatif to only preview the stack diff"
+        required: false
+        type: choice
+        options:
+          - deploy
+          - whatif
+        default: deploy
 
 permissions:
   id-token: write
@@ -62,19 +70,24 @@ jobs:
       # The runner has no SSH key: deploy.sh generates an ephemeral one for
       # exercises that need it (ex1, ex2, bonus).
       - name: Deploy
-        run: ./scripts/deploy.sh "${{ inputs.exercise }}" "$RESOURCE_GROUP" "${{ inputs.location }}"
+        run: ./scripts/deploy.sh "${{ inputs.exercise }}" "$RESOURCE_GROUP" "${{ inputs.location }}" ${{ inputs.action == 'whatif' && '--what-if' || '' }}
 
       - name: Verify
+        if: inputs.action != 'whatif'
         run: ./scripts/verify.sh "${{ inputs.exercise }}" "$RESOURCE_GROUP"
 
       - name: Job Summary
         if: always()
         run: |
-          echo "## Bicep Provision — ${{ inputs.exercise }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Bicep Provision — ${{ inputs.exercise }} (${{ inputs.action }})" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Resource group** : \`$RESOURCE_GROUP\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Region**         : \`${{ inputs.location }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Tag**            : \`managed_by=bicep\` on every resource created" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Branch**         : ${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Actor**          : @${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Run **bicep-destroy.yml** (same exercise) once you're done verifying." >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ inputs.action }}" == "whatif" ]]; then
+            echo "Preview only — nothing was deployed. Re-run with action=deploy to apply it." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Run **bicep-destroy.yml** (same exercise) once you're done verifying." >> "$GITHUB_STEP_SUMMARY"
+          fi

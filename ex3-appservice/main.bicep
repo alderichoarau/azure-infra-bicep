@@ -16,6 +16,12 @@ param productionImage string = 'DOCKER|mcr.microsoft.com/appsvc/staticsite:lates
 @description('Container image (staging slot) - same image, illustrates a slot swap')
 param stagingImage string = 'DOCKER|mcr.microsoft.com/appsvc/staticsite:latest'
 
+@description('Minimum plan instance count allowed by autoscale')
+param planMinCapacity int = 1
+
+@description('Maximum plan instance count allowed by autoscale')
+param planMaxCapacity int = 3
+
 // Web App names must be globally unique (they form the azurewebsites.net subdomain).
 var webAppName = toLower('${namePrefix}-web-${uniqueString(resourceGroup().id)}')
 var planName = '${namePrefix}-plan'
@@ -51,6 +57,12 @@ resource webApp 'Microsoft.Web/sites@2025-03-01' = {
     siteConfig: {
       linuxFxVersion: productionImage
       alwaysOn: true
+      appSettings: [
+        {
+          name: 'ENVIRONMENT_NAME'
+          value: 'production'
+        }
+      ]
     }
   }
 }
@@ -68,7 +80,73 @@ resource stagingSlot 'Microsoft.Web/sites/slots@2025-03-01' = {
     siteConfig: {
       linuxFxVersion: stagingImage
       alwaysOn: true
+      appSettings: [
+        {
+          name: 'ENVIRONMENT_NAME'
+          value: 'staging'
+        }
+      ]
     }
+  }
+}
+
+// Autoscale on the plan itself (not the VM/VMSS layer): CPU-based, in the
+// spirit of the exercise 2 autoscale but for the App Service Plan metric.
+resource planAutoscale 'Microsoft.Insights/autoscalesettings@2022-10-01' = {
+  name: '${planName}-autoscale'
+  location: location
+  tags: resourceTags
+  properties: {
+    enabled: true
+    targetResourceUri: plan.id
+    profiles: [
+      {
+        name: 'profil-cpu'
+        capacity: {
+          minimum: string(planMinCapacity)
+          maximum: string(planMaxCapacity)
+          default: string(planMinCapacity)
+        }
+        rules: [
+          {
+            metricTrigger: {
+              metricName: 'CpuPercentage'
+              metricResourceUri: plan.id
+              timeGrain: 'PT1M'
+              statistic: 'Average'
+              timeWindow: 'PT5M'
+              timeAggregation: 'Average'
+              operator: 'GreaterThan'
+              threshold: 70
+            }
+            scaleAction: {
+              direction: 'Increase'
+              type: 'ChangeCount'
+              value: '1'
+              cooldown: 'PT5M'
+            }
+          }
+          {
+            metricTrigger: {
+              metricName: 'CpuPercentage'
+              metricResourceUri: plan.id
+              timeGrain: 'PT1M'
+              statistic: 'Average'
+              timeWindow: 'PT5M'
+              timeAggregation: 'Average'
+              operator: 'LessThan'
+              threshold: 30
+            }
+            scaleAction: {
+              direction: 'Decrease'
+              type: 'ChangeCount'
+              value: '1'
+              cooldown: 'PT5M'
+            }
+          }
+        ]
+      }
+    ]
   }
 }
 

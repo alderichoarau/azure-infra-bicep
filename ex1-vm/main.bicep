@@ -20,6 +20,9 @@ param allowedSshSourceIp string
 @description('VM size')
 param vmSize string = 'Standard_B1s'
 
+@description('Size (GB) of the attached data disk')
+param dataDiskSizeGb int = 32
+
 var vnetName = '${namePrefix}-vnet'
 var subnetName = 'snet-vm'
 var nsgName = '${namePrefix}-nsg-vm'
@@ -167,6 +170,16 @@ resource vm 'Microsoft.Compute/virtualMachines@2025-11-01' = {
           storageAccountType: 'Standard_LRS'
         }
       }
+      dataDisks: [
+        {
+          lun: 0
+          createOption: 'Empty'
+          diskSizeGB: dataDiskSizeGb
+          managedDisk: {
+            storageAccountType: 'Standard_LRS'
+          }
+        }
+      ]
     }
     networkProfile: {
       networkInterfaces: [

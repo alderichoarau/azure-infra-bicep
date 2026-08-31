@@ -29,6 +29,12 @@ param minCapacity int = 2
 @description('Maximum instance count allowed by autoscale')
 param maxCapacity int = 5
 
+@description('Minimum instance count during the scheduled business-hours profile')
+param businessHoursMinCapacity int = 3
+
+@description('Windows time zone ID used by the schedule-based autoscale profiles')
+param autoscaleTimeZone string = 'Romance Standard Time'
+
 var vnetName = '${namePrefix}-vnet-ha'
 var subnetName = 'snet-vmss'
 var nsgName = '${namePrefix}-nsg-vmss'
@@ -337,6 +343,84 @@ resource autoscale 'Microsoft.Insights/autoscalesettings@2022-10-01' = {
               cooldown: 'PT5M'
             }
           }
+          {
+            metricTrigger: {
+              metricName: 'Percentage CPU'
+              metricResourceUri: vmss.id
+              timeGrain: 'PT1M'
+              statistic: 'Average'
+              timeWindow: 'PT5M'
+              timeAggregation: 'Average'
+              operator: 'LessThan'
+              threshold: 30
+            }
+            scaleAction: {
+              direction: 'Decrease'
+              type: 'ChangeCount'
+              value: '1'
+              cooldown: 'PT5M'
+            }
+          }
+        ]
+      }
+      // Predictable schedule-based scaling on top of the CPU profile above:
+      // scale out at the start of business hours, back down in the evening.
+      // 'profil-cpu' (no recurrence) stays the default outside these windows
+      // (nights, weekends) — see https://learn.microsoft.com/azure/azure-monitor/autoscale/autoscale-overview#autoscale-profiles.
+      {
+        name: 'profil-heures-ouvrees'
+        capacity: {
+          minimum: string(businessHoursMinCapacity)
+          maximum: string(maxCapacity)
+          default: string(businessHoursMinCapacity)
+        }
+        recurrence: {
+          frequency: 'Week'
+          schedule: {
+            timeZone: autoscaleTimeZone
+            days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+            hours: [8]
+            minutes: [0]
+          }
+        }
+        rules: [
+          {
+            metricTrigger: {
+              metricName: 'Percentage CPU'
+              metricResourceUri: vmss.id
+              timeGrain: 'PT1M'
+              statistic: 'Average'
+              timeWindow: 'PT5M'
+              timeAggregation: 'Average'
+              operator: 'GreaterThan'
+              threshold: 70
+            }
+            scaleAction: {
+              direction: 'Increase'
+              type: 'ChangeCount'
+              value: '1'
+              cooldown: 'PT5M'
+            }
+          }
+        ]
+      }
+      {
+        name: 'profil-soir'
+        capacity: {
+          minimum: string(minCapacity)
+          maximum: string(maxCapacity)
+          default: string(minCapacity)
+        }
+        recurrence: {
+          frequency: 'Week'
+          schedule: {
+            timeZone: autoscaleTimeZone
+            days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+            hours: [18]
+            minutes: [0]
+          }
+        }
+        rules: [
           {
             metricTrigger: {
               metricName: 'Percentage CPU'

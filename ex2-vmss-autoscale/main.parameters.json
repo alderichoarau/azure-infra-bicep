@@ -25,6 +25,12 @@
     },
     "maxCapacity": {
       "value": 5
+    },
+    "businessHoursMinCapacity": {
+      "value": 3
+    },
+    "autoscaleTimeZone": {
+      "value": "Romance Standard Time"
     }
   }
 }

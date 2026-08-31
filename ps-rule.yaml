@@ -48,3 +48,9 @@ suppression:
   # AZ-104 "availability" module is covered by the VMSS + autoscale of
   # exercise 2, not multi-zone HA). Add the exact Azure.VM.* / Azure.PublicIP.*
   # rule names PSRule reports on the first run here, with the same rationale.
+
+  # Storage account backing the ex4 azureFile volume: ACI mounts Azure Files
+  # over SMB using the account key, so shared-key access can't be disabled,
+  # and no firewall/private endpoint is configured (out of scope for this TP).
+  Azure.Storage.Firewall:
+    - "staciex4*"

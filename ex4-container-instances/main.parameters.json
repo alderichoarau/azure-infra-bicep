@@ -19,6 +19,9 @@
     },
     "sidecarMemoryInGb": {
       "value": 1
+    },
+    "fileShareQuotaGb": {
+      "value": 5
     }
   }
 }
