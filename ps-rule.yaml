@@ -1,18 +1,18 @@
-# ps-rule.yaml — PSRule for Azure configuration
+# PSRule for Azure configuration — static security scan run by
+# .github/workflows/bicep-lint.yml. Rule names reflect the PSRule.Rules.Azure
+# catalog at time of writing; confirm with your installed version before
+# relying on them: ps-rule list --module PSRule.Rules.Azure
 #
-# Equivalent of the `checkov:skip=...` inline comments used in the Terraform
-# version of this TP. Rule names below reflect the PSRule.Rules.Azure catalog
-# at the time of writing — confirm against your installed module version with:
-#   ps-rule list --module PSRule.Rules.Azure
-#
-# Every suppression here has a documented reason and a matching inline comment
-# in the .bicep source (search for "TP: exception volontaire").
+# Each suppression below is a deliberate TP choice (see the TP answer key,
+# CORRECTION-BICEP-AZURE.md section 5). This file hasn't been run
+# against a real PSRule scan yet — adjust rule names if the first CI run
+# flags different ones.
 
 input:
   pathIgnore:
-    - '**/*.md'
-    - '.github/**'
-    - 'bicep/**/*.json'
+    - "**/*.md"
+    - ".github/**"
+    - "**/*.json" # parameter files and compiled JSON, not relevant to the scan
 
 configuration:
   AZURE_BICEP_FILE_EXPANSION: true
@@ -24,34 +24,27 @@ rule:
   baseline: Azure.Default
 
 suppression:
-  # api-config est un conteneur public volontaire (blobs de config statique)
-  Azure.Storage.PublicAccess:
-    - 'st*bcp'
-
-  # Accès réseau ouvert volontairement — pas de Private Endpoint / VNet
-  # integration (hors périmètre TP)
-  Azure.Storage.Firewall:
-    - 'st*bcp'
-    - 'stfn*bcp'
-
-  # ACI exposé publiquement volontairement — conteneur nginx de démonstration TP
-  Azure.Container.PublicIP:
-    - 'aci-*-bcp'
-
-  # Règles Allow-HTTP/Allow-HTTPS avec source '*' volontaires pour le TP
+  # Allow-HTTP rule with source '*': port 80 is intentionally open for curl
+  # verification (exercises 1, 2 and bonus).
   Azure.NSG.AnyInboundSource:
-    - 'nsg-frontend-*-bcp'
+    - "simplon-tp104-nsg-vm"
+    - "simplon-tp104-nsg-vmss"
+    - "simplon-tp104-bonus-nsg"
 
-  # App Service Authentication (Entra ID / B2C) hors périmètre TP
+  # ACI intentionally exposed publicly — demo container for this TP.
+  Azure.Container.PublicIP:
+    - "simplon-tp104-aci"
+
+  # App Service Authentication (Entra ID / B2C) out of scope for this TP.
   Azure.AppService.AuthEnabled:
-    - 'app-*-bcp'
-    - 'fn-*-bcp'
+    - "simplon-tp104-web-*"
 
-  # Plan partagé B1 (rg-shared-prf2026) — zone redundancy non disponible sur ce SKU
+  # S1 plan — zone redundancy needs Premium v2/v3, out of budget (S1 is
+  # already the priciest SKU here, required only for deployment slots).
   Azure.AppService.AvailabilityZone:
-    - 'app-*-bcp'
-    - 'fn-*-bcp'
+    - "simplon-tp104-plan"
 
-  # Application Insights non provisionné — hors périmètre TP (cf. module Terraform équivalent)
-  Azure.FunctionApp.AppInsights:
-    - 'fn-*-bcp'
+  # Single VM/VMSS/public IP without zone redundancy — out of scope (the
+  # AZ-104 "availability" module is covered by the VMSS + autoscale of
+  # exercise 2, not multi-zone HA). Add the exact Azure.VM.* / Azure.PublicIP.*
+  # rule names PSRule reports on the first run here, with the same rationale.

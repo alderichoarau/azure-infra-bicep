@@ -1,0 +1,78 @@
+name: Bicep Lint
+run-name: "Lint · build · ${{ github.ref_name }} by @${{ github.actor }}"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/*.bicep"
+      - "**/*.bicepparam"
+      - "bicepconfig.json"
+      - ".github/workflows/bicep-lint.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "**/*.bicep"
+      - "**/*.bicepparam"
+      - "bicepconfig.json"
+      - ".github/workflows/bicep-lint.yml"
+
+permissions:
+  contents: read
+
+# No Azure credentials needed: `az bicep build` compiles/type-checks locally
+# and applies the bicepconfig.json linter rules.
+jobs:
+  build:
+    name: Build (${{ matrix.exercise }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        exercise:
+          - ex1-vm
+          - ex2-vmss-autoscale
+          - ex3-appservice
+          - ex4-container-instances
+          - bonus-modules
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install/upgrade Bicep CLI
+        run: |
+          az bicep install
+          az bicep upgrade
+
+      - name: Bicep Build (compile + lint via bicepconfig.json)
+        run: az bicep build --file ${{ matrix.exercise }}/main.bicep --stdout > /dev/null
+
+      - name: Bicep Format Check
+        continue-on-error: true # informative only — not a hard CI gate
+        run: |
+          az bicep format --file ${{ matrix.exercise }}/main.bicep --outfile /tmp/main.fmt.bicep
+          diff -u ${{ matrix.exercise }}/main.bicep /tmp/main.fmt.bicep
+
+  # PSRule for Azure: static Well-Architected Framework scan (Checkov
+  # equivalent). No Azure credentials needed. Exceptions in ps-rule.yaml.
+  security:
+    name: Security — PSRule for Azure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: PSRule for Azure
+        uses: microsoft/ps-rule@v2
+        with:
+          modules: "PSRule.Rules.Azure"
+          inputPath: "."
+          outputFormat: NUnit3
+          outputPath: reports/ps-rule-results.xml
+
+      - name: Upload PSRule results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psrule-results
+          path: reports/ps-rule-results.xml

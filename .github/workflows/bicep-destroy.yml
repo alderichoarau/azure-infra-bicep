@@ -1,0 +1,60 @@
+name: Bicep Destroy
+run-name: "Destroy · ${{ inputs.exercise }} · triggered by @${{ github.actor }}"
+
+# Destroys ONLY what bicep-provision.yml created for this exercise:
+# scripts/cleanup.sh deletes the exercise's Deployment Stack
+# (stack-<exercise>) with --action-on-unmanage deleteAll, which removes only
+# the managed_by=bicep / exercise=<exercise> resources it tracks — never the
+# shared resource group, never another exercise's resources.
+#
+# --wait (not --no-wait) is intentional: the run only reports success once
+# deletion has actually finished.
+
+on:
+  workflow_dispatch:
+    inputs:
+      exercise:
+        description: "Exercise to destroy"
+        required: true
+        type: choice
+        options:
+          - ex1-vm
+          - ex2-vmss-autoscale
+          - ex3-appservice
+          - ex4-container-instances
+          - bonus-modules
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  # Same shared resource group as bicep-provision.yml — never deleted by this
+  # workflow, only this exercise's managed_by=bicep resources are.
+  RESOURCE_GROUP: "${{ vars.AZURE_RG_NAME }}"
+
+jobs:
+  destroy:
+    name: Destroy (${{ inputs.exercise }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Cleanup (destroy managed_by=bicep resources only)
+        run: ./scripts/cleanup.sh "${{ inputs.exercise }}" "$RESOURCE_GROUP" --yes --wait
+
+      - name: Job Summary
+        if: always()
+        run: |
+          echo "## Bicep Destroy — ${{ inputs.exercise }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Resource group** : \`$RESOURCE_GROUP\` (kept — only \`managed_by=bicep\` resources were removed)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Branch**         : ${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Actor**          : @${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"

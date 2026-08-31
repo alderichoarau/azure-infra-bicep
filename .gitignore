@@ -3,16 +3,18 @@
 .idea/
 *.swp
 
-# Bicep / ARM
-# Compiled ARM JSON templates (built on the fly in CI, never committed)
-bicep/**/*.json
+# Bicep / ARM — compiled JSON output (built on the fly locally/in CI, never committed)
+*.bicep.json
+main.json
+**/*.compiled.json
+
+# Local override parameter files — never commit real SSH keys/IPs
+*.local.json
+*.local.parameters.json
 
 # What-if / deployment output
 whatif-*.txt
 deployment-*.json
-
-# Local override params (may contain a real owner/RG value - never commit)
-*.local.bicepparam
 
 # OS
 .DS_Store

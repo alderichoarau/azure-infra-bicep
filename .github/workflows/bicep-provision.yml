@@ -1,0 +1,80 @@
+name: Bicep Provision
+run-name: "Provision · ${{ inputs.exercise }} · triggered by @${{ github.actor }}"
+
+# Deploys one exercise into the shared resource group pre-created by the
+# trainer (GitHub variable AZURE_RG_NAME). Each exercise gets its own
+# Deployment Stack and managed_by=bicep / exercise=<exercise> tags, so
+# bicep-destroy.yml only ever removes what this run created — see
+# scripts/cleanup.sh.
+#
+# One-time OIDC setup: az ad app create, az ad app federated-credential
+# create (issuer https://token.actions.githubusercontent.com), az role
+# assignment create --role Contributor --scope .../resourceGroups/<AZURE_RG_NAME>,
+# then add secrets AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_SUBSCRIPTION_ID
+# and variable AZURE_RG_NAME. Reference:
+# https://learn.microsoft.com/azure/developer/github/connect-from-azure-openid-connect
+#
+# ⚠️ Creates real, billed resources (incl. an S1 App Service Plan for ex3).
+# Manual trigger only — run bicep-destroy.yml right after verifying.
+
+on:
+  workflow_dispatch:
+    inputs:
+      exercise:
+        description: "Exercise to deploy"
+        required: true
+        type: choice
+        options:
+          - ex1-vm
+          - ex2-vmss-autoscale
+          - ex3-appservice
+          - ex4-container-instances
+          - bonus-modules
+      location:
+        description: "Azure region"
+        required: false
+        type: string
+        default: francecentral
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  # Shared, pre-created resource group — never created or deleted by this workflow.
+  RESOURCE_GROUP: "${{ vars.AZURE_RG_NAME }}"
+
+jobs:
+  provision:
+    name: Provision (${{ inputs.exercise }})
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # The runner has no SSH key: deploy.sh generates an ephemeral one for
+      # exercises that need it (ex1, ex2, bonus).
+      - name: Deploy
+        run: ./scripts/deploy.sh "${{ inputs.exercise }}" "$RESOURCE_GROUP" "${{ inputs.location }}"
+
+      - name: Verify
+        run: ./scripts/verify.sh "${{ inputs.exercise }}" "$RESOURCE_GROUP"
+
+      - name: Job Summary
+        if: always()
+        run: |
+          echo "## Bicep Provision — ${{ inputs.exercise }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Resource group** : \`$RESOURCE_GROUP\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Region**         : \`${{ inputs.location }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Tag**            : \`managed_by=bicep\` on every resource created" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Branch**         : ${{ github.ref_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Actor**          : @${{ github.actor }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Run **bicep-destroy.yml** (same exercise) once you're done verifying." >> "$GITHUB_STEP_SUMMARY"

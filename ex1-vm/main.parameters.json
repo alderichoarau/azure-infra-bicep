@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": {
+      "value": "simplon-tp104"
+    },
+    "adminUsername": {
+      "value": "azureuser"
+    },
+    "adminPublicKey": {
+      "value": "CHANGE_ME - provided on the command line, see README"
+    },
+    "allowedSshSourceIp": {
+      "value": "CHANGE_ME - e.g. 90.12.34.56/32 (use https://ifconfig.me to find your IP)"
+    },
+    "vmSize": {
+      "value": "Standard_B1s"
+    }
+  }
+}

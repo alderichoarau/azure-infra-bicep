@@ -1,23 +1,22 @@
 ## Description
 
-<!-- Décrire les ressources Bicep ajoutées ou modifiées -->
+<!-- Describe the Bicep resources added/changed, and which exercise -->
 
 ## Checklist
 
-- [ ] `bicep build` exécuté sans erreur (`az bicep build --file bicep/main.bicep`)
-- [ ] `bicep lint` / analyseur Bicep sans erreur
-- [ ] `az deployment group validate` passe sans erreur
-- [ ] `az deployment group what-if` revu et approuvé
-- [ ] PSRule for Azure passe sans erreur bloquante
-- [ ] Tags `managed_by: 'bicep'` présents sur toutes les ressources
-- [ ] Aucun secret / valeur sensible en dur dans les fichiers `.bicep` ou `.bicepparam`
+- [ ] `bicep build` passes for the exercise (`az bicep build --file <exercise>/main.bicep`)
+- [ ] Bicep linter passes (`bicepconfig.json`)
+- [ ] `scripts/validate-bicep.sh` passes for all templates
+- [ ] PSRule for Azure passes without an unjustified failure (`ps-rule.yaml`)
+- [ ] `managed_by: 'bicep'` tag present on every resource added/changed
+- [ ] No secrets/sensitive values hardcoded in `.bicep` or `main.parameters.json` (SSH key, real IP → `CHANGE_ME`)
+- [ ] `bicep-provision.yml` ran successfully for this exercise (link the run)
+- [ ] `bicep-destroy.yml` ran successfully right after (link the run)
 
-## Ressources impactées
+## Resources affected
 
-<!-- Liste des ressources créées / modifiées / supprimées -->
+<!-- Created / modified / deleted -->
 
-## What-if (extrait)
+## Functional verification
 
-```
-<!-- Coller les lignes clés du what-if ici -->
-```
+<!-- Paste the key output from scripts/verify.sh or the "provision" run -->

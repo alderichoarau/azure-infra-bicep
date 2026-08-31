@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": {
+      "value": "simplon-tp104"
+    },
+    "restartPolicy": {
+      "value": "Always"
+    },
+    "webCpu": {
+      "value": 1
+    },
+    "webMemoryInGb": {
+      "value": 1
+    },
+    "sidecarCpu": {
+      "value": 1
+    },
+    "sidecarMemoryInGb": {
+      "value": 1
+    }
+  }
+}
