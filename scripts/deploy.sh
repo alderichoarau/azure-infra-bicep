@@ -5,8 +5,8 @@
 # Usage:
 #   ./deploy.sh <ex1-vm|ex2-vmss-autoscale|ex3-appservice|ex4-container-instances|bonus-modules> <resource-group> [location] [--what-if]
 #
-# --what-if previews what the stack would create/change/delete (Bicep's
-# equivalent of `terraform plan`) without deploying anything.
+# --what-if previews resource creates/changes (Bicep's equivalent of
+# `terraform plan`) without deploying anything.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -94,16 +94,17 @@ STACK_NAME="stack-${EXERCISE}"
 DEPLOYMENT_NAME="tp104-${EXERCISE}-$(date +%Y%m%d%H%M%S)"
 
 if [[ -n "$WHAT_IF" ]]; then
-  echo ">>> What-if preview for '$EXERCISE' via Deployment Stack '$STACK_NAME' (nothing will be deployed)..."
-  az stack group create \
-    --name "$STACK_NAME" \
+  # `az stack group create` has no --what-if of its own (checked against the
+  # CLI as of 2.86.0 — az stack group --help lists no such command/flag), so
+  # this falls back to a plain `az deployment group what-if` against the same
+  # template/parameters. It previews resource creates/changes but — unlike a
+  # real stack — won't reflect --action-on-unmanage deletions.
+  echo ">>> What-if preview for '$EXERCISE' (nothing will be deployed)..."
+  az deployment group what-if \
     --resource-group "$RESOURCE_GROUP" \
     --template-file "$EX_DIR/main.bicep" \
     --parameters "$EX_DIR/main.parameters.json" \
-    --parameters "${EXTRA_PARAMS[@]}" \
-    --deny-settings-mode none \
-    --action-on-unmanage deleteResources \
-    --what-if
+    --parameters "${EXTRA_PARAMS[@]}"
   exit 0
 fi
 
