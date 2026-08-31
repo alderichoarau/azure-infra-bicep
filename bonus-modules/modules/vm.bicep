@@ -129,7 +129,9 @@ resource nginxExtension 'Microsoft.Compute/virtualMachines/extensions@2025-11-01
     typeHandlerVersion: '2.1'
     autoUpgradeMinorVersion: true
     settings: {
-      commandToExecute: 'apt-get update && apt-get install -y nginx && echo "<h1>${vmName}</h1>" > /var/www/html/index.html'
+      // Retries apt-get: fresh Ubuntu images run unattended-upgrades/apt-daily
+      // at boot, which can hold the dpkg lock and make a single apt-get fail.
+      commandToExecute: 'export DEBIAN_FRONTEND=noninteractive; n=0; until apt-get update && apt-get install -y nginx; do n=$((n+1)); [ $n -ge 10 ] && exit 1; sleep 15; done; echo "<h1>${vmName}</h1>" > /var/www/html/index.html'
     }
   }
 }
