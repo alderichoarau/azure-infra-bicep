@@ -37,12 +37,14 @@ STACK_NAME="stack-${EXERCISE}"
 if ! az stack group show --name "$STACK_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
   echo "No Deployment Stack '$STACK_NAME' found in '$RESOURCE_GROUP' — nothing to destroy."
   echo "(If managed_by=bicep, exercise=$EXERCISE resources exist without a stack,"
-  echo " delete them manually: az resource list -g $RESOURCE_GROUP --tag exercise=$EXERCISE -o table)"
+  echo " delete them manually: az resource list --tag exercise=$EXERCISE --query \"[?resourceGroup=='$RESOURCE_GROUP']\" -o table)"
   exit 0
 fi
 
 echo ">>> Resources of '$EXERCISE' currently tracked by stack '$STACK_NAME':"
-az resource list --resource-group "$RESOURCE_GROUP" --tag "exercise=$EXERCISE" --query "[].{name:name, type:type}" -o table
+# `az resource list` rejects --tag combined with --resource-group, so filter
+# by resource group client-side via --query instead.
+az resource list --tag "exercise=$EXERCISE" --query "[?resourceGroup=='$RESOURCE_GROUP'].{name:name, type:type}" -o table
 
 if [[ -z "$SKIP_CONFIRM" ]]; then
   echo ""
