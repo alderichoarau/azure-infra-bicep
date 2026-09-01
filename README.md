@@ -5,7 +5,7 @@ Bicep implementation of the Microsoft Learn path
 the same VM, scale set, App Service and Container Instances resources that path has you create via the
 portal/CLI, deployed here as code instead.
 
-> Based on the TP Bicep Azure assignment and its answer key (Simplon — DevOps Azure training).
+> Based on the [TP Bicep Azure assignment](TP-BICEP-AZURE.md) and its [answer key](CORRECTION-REFLEXION-TERRAFORM-VS-BICEP.md) (Simplon — DevOps Azure training).
 
 ## What's deployed
 
@@ -101,7 +101,9 @@ azure-infra-bicep/
 │   └── validate-bicep.sh          compiles every template without deploying
 ├── bicepconfig.json                Bicep linter config (root — covers every exercise)
 ├── ps-rule.yaml                    PSRule for Azure config (security scan)
+├── TP-BICEP-AZURE.md               assignment statement (French)
 ├── REFLEXION-TERRAFORM-VS-BICEP.md Terraform vs Bicep reflection (assignment questions, in French)
+├── CORRECTION-REFLEXION-TERRAFORM-VS-BICEP.md  answer key for the reflection questions
 └── .github/
     └── workflows/
         ├── bicep-lint.yml          build + lint + PSRule (automatic)
