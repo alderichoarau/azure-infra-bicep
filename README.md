@@ -31,8 +31,14 @@ deploy/destroy from ever touching more than its own exercise:
    (`az resource list --tag managed_by=bicep`, Cost Management, Resource Graph).
 2. **One Deployment Stack per exercise** (`stack-<exercise>`) — this is what actually drives deletion.
    `scripts/cleanup.sh` runs `az stack group delete --action-on-unmanage deleteAll`, which removes only the
-   resources *that specific stack* created, in dependency order. The resource group, other exercises, and
-   anything from another tool are left alone.
+   resources *that specific stack* created. The resource group, other exercises, and anything from another
+   tool are left alone.
+
+   > Deployment Stacks doesn't reliably delete VMs/VMSS *before* the network resources they still hold in
+   > use (LB pools, NSG-subnet association, attached public IP) — a
+   > [known limitation](https://aka.ms/DeploymentStacksKnownLimitations), not a template dependency bug.
+   > `cleanup.sh` works around it by deleting any `Microsoft.Compute/virtualMachines`/`virtualMachineScaleSets`
+   > for the exercise first, before calling `az stack group delete`.
 
 ## Usage
 

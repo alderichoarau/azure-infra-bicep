@@ -60,6 +60,20 @@ else
   echo "Deleting stack '$STACK_NAME' in '$RESOURCE_GROUP' without confirmation (--yes)..."
 fi
 
+# Deployment Stacks doesn't reliably delete VMs/VMSS before the network
+# resources they still hold in use (LB backend/NAT pools, NSG-subnet
+# association, attached public IP) — a known limitation, not a template
+# dependency bug: see https://aka.ms/DeploymentStacksKnownLimitations.
+# Deleting compute resources explicitly first sidesteps it.
+COMPUTE_IDS="$(az resource list --tag "exercise=$EXERCISE" \
+  --query "[?resourceGroup=='$RESOURCE_GROUP' && (type=='Microsoft.Compute/virtualMachineScaleSets' || type=='Microsoft.Compute/virtualMachines')].id" \
+  -o tsv)"
+if [[ -n "$COMPUTE_IDS" ]]; then
+  echo ">>> Deleting compute resources first (VM/VMSS still holding network resources in use)..."
+  # shellcheck disable=SC2086
+  az resource delete --ids $COMPUTE_IDS --verbose
+fi
+
 # --action-on-unmanage deleteAll deletes the stack AND every resource it
 # manages (tagged managed_by=bicep / exercise=$EXERCISE by the template) —
 # never the resource group, never another exercise's/tool's resources.
